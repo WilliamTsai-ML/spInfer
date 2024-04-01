@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "spInfer"
+version = "0.0.0"
+description = "Speculative Inference"
+authors = ["William <william.wytsai@gmail.com>"]
+readme = "README.md"
+packages = [{include = "spInfer"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+torch = "~2.2.2"
+transformers = "~4.39.2"
+colorama = "^0.4.6"
+pytest = "^8.1.1"
+
+[tool.poetry.scripts]
+run_gemma_spinfer = "scripts.gemma_speculative_inference:run"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
