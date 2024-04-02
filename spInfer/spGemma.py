@@ -1,84 +1,99 @@
+from typing import Optional, Tuple
 import torch
 from transformers.models import gemma
-from colorama import Fore, Style
+
+from spInfer.utils import ColorPrinter
 
 
 class spGemmaForCausalLM(gemma.GemmaForCausalLM):
-    colors = [Fore.BLUE, Fore.CYAN, Fore.GREEN, Fore.MAGENTA, Fore.RED, Fore.WHITE, Fore.YELLOW]
-    def __init__(self, *args, **kwargs):
+    def __init__(
+        self,
+        *args,
+        guess_length: int = 5,
+        **kwargs,
+    ) -> None:
         super().__init__(*args, **kwargs)
-        self._guess_model = None
-        self._guess_length = 5
+        self._guess_length = guess_length
+        self._guess_model: Optional[gemma.GemmaForCausalLM] = None
+        self._cprint = ColorPrinter()
 
-    def set_guess_model(self, model: gemma.GemmaForCausalLM, pad_token_id=0):
+    def set_guess_model(
+        self,
+        model: torch.nn.Module,
+        pad_token_id: int = 0,
+    ) -> None:
+        """Sets the guess model"""
         self._guess_model = model
         self._pad_token_id = pad_token_id
 
-    @property
-    def guess_model(self):
-        return self._guess_model
-
-    def generate_guess(self, input_ids, max_new_tokens=None, attention_mask=None, **kwargs):
+    def _guess(
+        self,
+        input_ids: torch.Tensor,
+        max_new_tokens: Optional[int] = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        **kwargs,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Generates guesses from the guess model"""
         if max_new_tokens is None:
             max_new_tokens = self._guess_length
-        if attention_mask is None:
-            extended_attention_mask = torch.ones_like(input_ids).tolist()
-        else:
-            extended_attention_mask = attention_mask.clone().tolist()
+        attn_mask_ext = (
+            attention_mask.clone() if attention_mask is not None else torch.ones_like(input_ids, dtype=torch.bool)
+        )
 
-        extended_input_ids = input_ids.clone().tolist()
+        input_ids_ext = input_ids.clone()
         guesses = self._guess_model.generate(input_ids=input_ids, max_new_tokens=max_new_tokens, **kwargs)
 
+        # Pad first rows of input_ids_ext and attn_mask_ext to length of guesses
+        input_ids_ext = torch.cat([torch.tensor([self._pad_token_id]*(len(guesses[0])-len(input_ids[0]))).unsqueeze(0), input_ids], dim=1)
+        attn_mask_ext = torch.cat([torch.tensor([0]*(len(guesses[0])-len(attn_mask_ext[0]))).unsqueeze(0), attn_mask_ext], dim=1)
+
         for i in range(len(input_ids[0]), len(guesses[0])):
-            extended_input_ids.append(extended_input_ids[-1]+[guesses[0][i].item()])
-            extended_attention_mask.append(extended_attention_mask[-1]+[1])
-        for i in range(len(extended_input_ids)):
-            extended_input_ids[i] = [self._pad_token_id]*(len(extended_input_ids[-1])-len(extended_input_ids[i])) + extended_input_ids[i]
-            extended_attention_mask[i] = [0]*(len(extended_attention_mask[-1])-len(extended_attention_mask[i])) + extended_attention_mask[i]
-        extended_input_ids = torch.tensor(extended_input_ids)
-        extended_attention_mask = torch.tensor(extended_attention_mask)
+            next_input = torch.cat([input_ids_ext[-1][1:], guesses[0][i].unsqueeze(0)], dim=0)
+            input_ids_ext = torch.cat([input_ids_ext, next_input.unsqueeze(0)], dim=0)
+            next_attn_mask = torch.cat([attn_mask_ext[-1][1:], torch.tensor([1])], dim=0)
+            attn_mask_ext = torch.cat([attn_mask_ext, next_attn_mask.unsqueeze(0)], dim=0)
 
-        return extended_input_ids, extended_attention_mask
+        return input_ids_ext, attn_mask_ext
     
-    def generate_with_guess(self, input_ids, max_new_tokens=30, attention_mask=None, **kwargs):
-        output_ids = input_ids.clone().tolist()
-        output_attention_mask = attention_mask.clone().tolist() if attention_mask is not None else [None]*len(input_ids)
+    def generate_with_guess(
+        self, input_ids: torch.Tensor, max_new_tokens: int = 30, attention_mask: Optional[torch.Tensor] = None, **kwargs
+    ) -> torch.Tensor:
+        """Uses speculative inference technique to generate sequences."""
+        assert self._guess_model is not None, "Please set the guess model using `set_guess_model()`."
+        
         max_output_length = 0
+        output_list = []
 
-        for b_i in range(len(output_ids)):
-            current_input_ids = torch.tensor(output_ids[b_i]).reshape(1, -1)
-            current_attention_mask = torch.tensor([output_attention_mask[b_i]]) if output_attention_mask[b_i] is not None else None
+        for b_i in range(len(input_ids)):
+            current_input_ids = input_ids[b_i].clone().detach().unsqueeze(0)
+            current_attention_mask = attention_mask[b_i].clone().unsqueeze(0) if attention_mask is not None else None
             remaining_new_tokens = max_new_tokens
-            # print(current_input_ids, current_attention_mask)
-            print(self.colors[0] + f" {output_ids[b_i]}", end='')
-            self.colors = self.colors[1:] + [self.colors[0]]
+            self._cprint(current_input_ids.tolist(), end=' ')
 
             while remaining_new_tokens > 0:
                 if remaining_new_tokens > 1:
                     l_guess = min(self._guess_length, remaining_new_tokens-1)
-                    extended_input_ids, extended_attention_mask = self.generate_guess(current_input_ids, max_new_tokens=l_guess, attention_mask=current_attention_mask)
-                else:   # current_input_ids.shape[1]-output_ids[b_i].shape[1] == max_new_tokens-1
+                    input_ids_ext, attn_mask_ext = self._guess(current_input_ids, max_new_tokens=l_guess, attention_mask=current_attention_mask)
+                else:   # Skip guessing when only 1 token left
                     l_guess = 0
-                    extended_input_ids, extended_attention_mask = current_attention_mask, current_attention_mask
+                    input_ids_ext, attn_mask_ext = current_attention_mask, current_attention_mask
 
-                suspective_output_ids = self.generate(extended_input_ids, max_new_tokens=1, attention_mask=extended_attention_mask, **kwargs)
+                speculative_output_ids = self.generate(input_ids_ext, max_new_tokens=1, attention_mask=attn_mask_ext, **kwargs)
                 i = 0
-                while i < len(extended_input_ids)-1:
-                    if extended_input_ids[i+1][-1] != suspective_output_ids[i][-1]:
-                        # print(f"Skipping until: {i}\n{extended_input_ids[i+1]}\n{suspective_output_ids[i]}\n")
+                while i < len(input_ids_ext)-1:
+                    if input_ids_ext[i+1][-1] != speculative_output_ids[i][-1]:
                         break
                     i += 1
-                n_pads = len(extended_input_ids)-i-1
-                new_ids = suspective_output_ids[i][n_pads:][len(current_input_ids[0]):]
-                print(self.colors[0] + f" {new_ids.tolist()}", end='')
-                self.colors = self.colors[1:] + [self.colors[0]]
-                current_input_ids = suspective_output_ids[i][n_pads:].reshape(1, -1)
-                current_attention_mask = torch.cat([extended_attention_mask[i][n_pads:], torch.tensor([1])]).reshape(1, -1)
+                n_pads = len(input_ids_ext)-i-1
+                new_ids = speculative_output_ids[i][n_pads:][len(current_input_ids[0]):]
+                self._cprint(new_ids.tolist(), end=' ')
+                current_input_ids = speculative_output_ids[i][n_pads:].unsqueeze(0)
+                current_attention_mask = torch.cat([attn_mask_ext[i][n_pads:], torch.tensor([1])]).unsqueeze(0)
                 remaining_new_tokens -= i+1
-                # print(f"{current_input_ids=}\n{current_attention_mask=}\n{remaining_new_tokens=}\n")
-            output_ids[b_i] = current_input_ids[0].tolist()
-            max_output_length = max(max_output_length, len(output_ids[b_i]))
-            print(Style.RESET_ALL)
-        for i in range(len(output_ids)):
-            output_ids[i] = [self._pad_token_id]*(max_output_length-len(output_ids[i])) + output_ids[i]
-        return torch.tensor(output_ids)
+            output_list.append(current_input_ids[0].tolist())
+            max_output_length = max(max_output_length, len(output_list[-1]))
+            self._cprint.reset()
+            print()
+        for i in range(len(output_list)):
+            output_list[i] = [self._pad_token_id]*(max_output_length-len(output_list[i])) + output_list[i]
+        return torch.tensor(output_list)

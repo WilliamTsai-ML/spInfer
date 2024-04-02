@@ -22,7 +22,7 @@ def run():
 
     input_text = ["What is the meaning of life?", "Write a story about Monday:"]
     inputs = tokenizer(input_text, return_tensors="pt", padding=True)
-    # print(inputs)
+    
     tic = time.perf_counter()
     output_id_with_guess = sp_gemma.generate_with_guess(**inputs, max_new_tokens=15)
     for i in range(len(output_id_with_guess)):
