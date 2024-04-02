@@ -4,27 +4,19 @@ from transformers.models import gemma
 
 from spInfer.utils import ColorPrinter
 
-
-class spGemmaForCausalLM(gemma.GemmaForCausalLM):
-    def __init__(
+def enable_speculative_inference(cls):
+    def setup_for_guess(
         self,
-        *args,
+        guess_model: torch.nn.Module,
         guess_length: int = 5,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        self._guess_length = guess_length
-        self._guess_model: Optional[gemma.GemmaForCausalLM] = None
-        self._cprint = ColorPrinter()
-
-    def set_guess_model(
-        self,
-        model: torch.nn.Module,
         pad_token_id: int = 0,
     ) -> None:
         """Sets the guess model"""
-        self._guess_model = model
+        self._guess_model = guess_model
+        self._guess_length = guess_length
         self._pad_token_id = pad_token_id
+
+        self._cprint = ColorPrinter()
 
     def _guess(
         self,
@@ -59,7 +51,7 @@ class spGemmaForCausalLM(gemma.GemmaForCausalLM):
         self, input_ids: torch.Tensor, max_new_tokens: int = 30, attention_mask: Optional[torch.Tensor] = None, **kwargs
     ) -> torch.Tensor:
         """Uses speculative inference technique to generate sequences."""
-        assert self._guess_model is not None, "Please set the guess model using `set_guess_model()`."
+        assert hasattr(self, "_guess_model"), "Please set the guess model using `set_guess_model()`."
         
         max_output_length = 0
         output_list = []
@@ -97,3 +89,11 @@ class spGemmaForCausalLM(gemma.GemmaForCausalLM):
         for i in range(len(output_list)):
             output_list[i] = [self._pad_token_id]*(max_output_length-len(output_list[i])) + output_list[i]
         return torch.tensor(output_list)
+    setattr(cls, "setup_for_guess", setup_for_guess)
+    setattr(cls, "_guess", _guess)
+    setattr(cls, "generate_with_guess", generate_with_guess)
+    return cls
+
+@enable_speculative_inference
+class spGemmaForCausalLM(gemma.GemmaForCausalLM):
+    pass

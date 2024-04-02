@@ -15,10 +15,9 @@ def run():
     gemma7b_config = gemma.GemmaConfig.from_pretrained("google/gemma-7b")
     gemma7b_config.hidden_activation = "gelu_pytorch_tanh"
     sp_gemma = spGemmaForCausalLM.from_pretrained("google/gemma-7b", token=HF_TOKEN, config=gemma7b_config)
-    sp_gemma.set_guess_model(model=gemma_guess_model)
 
     tokenizer = AutoTokenizer.from_pretrained("google/gemma-7b", token=HF_TOKEN)
-    sp_gemma.set_guess_model(model=gemma_guess_model, pad_token_id=tokenizer.pad_token_id)
+    sp_gemma.setup_for_guess(guess_model=gemma_guess_model, pad_token_id=tokenizer.pad_token_id)
 
     input_text = ["What is the meaning of life?", "Write a story about Monday:"]
     inputs = tokenizer(input_text, return_tensors="pt", padding=True)
