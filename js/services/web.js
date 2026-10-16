@@ -1,6 +1,6 @@
 // Web implementations of the service interfaces. Browser APIs live here and nowhere else.
 
-import { Recognizer, Speaker, Store, Clock, Monetization } from './interfaces.js';
+import { Recognizer, Speaker, Store, Clock, Monetization } from './interfaces.js?v=8';
 
 export class WebSpeechRecognizer extends Recognizer {
   constructor() {
@@ -13,12 +13,27 @@ export class WebSpeechRecognizer extends Recognizer {
   get available() { return !!this.SR && !this.failed; }
   get name() { return 'web-speech'; }
   get listening() { return !!this.rec; }
+  // Keep a microphone stream open across sessions. On iOS this keeps the audio session
+  // alive so WebKit stops aborting every other recognition. Released if it ever causes trouble.
+  async holdMic(onEvent) {
+    if (this.stream || this.noHold) return;
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) { this.noHold = true; return; }
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      onEvent?.('hold');
+    } catch { this.noHold = true; onEvent?.('nohold'); }
+  }
+  releaseMic() {
+    try { this.stream?.getTracks().forEach(t => t.stop()); } catch { /* ignore */ }
+    this.stream = null;
+  }
   // iOS Safari sometimes never fires onend for a second session, and often delivers
   // only interim results. So: abort any previous session, keep the best text seen so far,
   // and finish on a watchdog if the browser never says it ended.
   async start({ lang = 'en-US', onInterim, onFinal, onError, onEvent }) {
     if (!this.available) throw new Error('unavailable');
     this.abort();
+    await this.holdMic(onEvent);
     // iOS Safari aborts a session that starts within ~1 s of the previous one ending.
     const gap = 1000 - (Date.now() - (this.endedAt || 0));
     if (gap > 0) { onEvent?.('wait'); await new Promise(r => setTimeout(r, gap)); }
@@ -54,6 +69,8 @@ export class WebSpeechRecognizer extends Recognizer {
       if (!this.everWorked && (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'audio-capture')) this.failed = true;
       if (lastText) return; // we already have text; let onend deliver it
       if (this.rec !== rec) return; // we aborted it ourselves
+      // If holding the mic stream is what upsets WebKit, let it go and let the caller retry without it.
+      if (this.stream && (e.error === 'audio-capture' || e.error === 'aborted')) { this.holdFailures = (this.holdFailures || 0) + 1; if (this.holdFailures >= 2) { this.releaseMic(); this.noHold = true; onEvent?.('release'); } }
       onError?.(e.error || 'error');
       if (e.error !== 'no-speech') finish('error');
     };

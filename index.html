@@ -87,8 +87,8 @@ textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; 
 </style>
 <div id="app"></div>
 <script type="module">
-import { App } from './js/ui/App.js';
-import { createPlatform } from './js/services/Platform.js';
+import { App } from './js/ui/App.js?v=8';
+import { createPlatform } from './js/services/Platform.js?v=8';
 const app = new App({ platform: createPlatform(), root: document.getElementById('app') });
 window.lantern = app; // for tests and poking from the console
 app.boot();

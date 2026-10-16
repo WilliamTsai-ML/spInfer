@@ -1,7 +1,7 @@
 // Platform factory: the only place that names concrete service classes.
 // A native build swaps this file (or the recognizers/speakers it lists) and nothing else.
 
-import { WebSpeechRecognizer, KeyboardRecognizer, WebSpeaker, LocalStore, MemoryStore, SystemClock, NoneMonetization } from './web.js';
+import { WebSpeechRecognizer, KeyboardRecognizer, WebSpeaker, LocalStore, MemoryStore, SystemClock, NoneMonetization } from './web.js?v=8';
 
 export function createPlatform({ test = false } = {}) {
   const primary = new WebSpeechRecognizer();

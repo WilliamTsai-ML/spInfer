@@ -1,11 +1,11 @@
 // UI layer. Talks to core and to the service interfaces, never to browser APIs directly
 // (DOM aside). Screens are small classes with a mount(root) method.
 
-import { LearnerModel, SKILLS } from '../core/LearnerModel.js';
-import { VocabPlacement } from '../core/VocabPlacement.js';
-import { SpeechAssessor } from '../core/SpeechAssessor.js';
-import { WordDrill } from '../core/WordDrill.js';
-import { VOCAB, PSEUDOWORDS, SPEAKING, MINIMAL_PAIRS, PHONEME_NOTES, STRINGS } from '../data/pack-en-zh.js';
+import { LearnerModel, SKILLS } from '../core/LearnerModel.js?v=8';
+import { VocabPlacement } from '../core/VocabPlacement.js?v=8';
+import { SpeechAssessor } from '../core/SpeechAssessor.js?v=8';
+import { WordDrill } from '../core/WordDrill.js?v=8';
+import { VOCAB, PSEUDOWORDS, SPEAKING, MINIMAL_PAIRS, PHONEME_NOTES, STRINGS } from '../data/pack-en-zh.js?v=8';
 
 const h = (tag, attrs = {}, ...children) => {
   const el = document.createElement(tag);
@@ -142,7 +142,7 @@ class MicPanel {
   get elements() { return [this.status, this.input, this.heard, this.trace]; }
   reset() {
     const a = this.app, rec = a.platform.recognizer;
-    this.heard.textContent = ''; this.input.value = ''; this.trace.textContent = ''; this.events = []; this.retried = false;
+    this.heard.textContent = ''; this.input.value = ''; this.trace.textContent = ''; this.events = []; this.retries = 0;
     rec.abort(); this.stopUi();
     if (rec.name === 'keyboard') { this.recBtn.hidden = true; this.status.textContent = a.t('micDenied'); }
     else { this.recBtn.hidden = false; this.status.textContent = ''; }
@@ -160,14 +160,15 @@ class MicPanel {
         lang: 'en-US',
         onEvent: (e) => { this.events.push(e); this.trace.textContent = this.events.join(' · '); },
         onInterim: (t) => { if (seq === this.seq) this.heard.textContent = a.t('heard') + ' ' + t; },
-        onFinal: (t) => { if (seq !== this.seq) return; this.stopUi(); if (t) { this.retried = false; this.deliver(t); } else if (!this.status.textContent) this.status.textContent = a.t('nothingHeard'); },
+        onFinal: (t) => { if (seq !== this.seq) return; this.stopUi(); if (t) { this.retries = 0; this.deliver(t); } else if (!this.status.textContent) this.status.textContent = a.t('nothingHeard'); },
         onError: (err) => {
           if (seq !== this.seq) return;
           this.stopUi();
           if (!rec.available) { this.reset(); return; }
           if (err === 'no-speech') { this.status.textContent = a.t('nothingHeard'); return; }
           // iOS Safari: a later session can fail at once with not-allowed/aborted. One automatic retry.
-          if (!this.retried) { this.retried = true; this.status.textContent = a.t('retrying'); setTimeout(() => this.toggleRecord(), 300); return; }
+          this.retries = (this.retries || 0) + 1;
+          if (this.retries <= 3) { this.status.textContent = `${a.t('retrying')} ${this.retries}/3`; setTimeout(() => this.toggleRecord(), 300); return; }
           this.status.textContent = `${a.t('micError')} (${err}). ${a.t('tapAgain')}`;
         },
       });
