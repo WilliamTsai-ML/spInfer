@@ -56,6 +56,23 @@ export const SPEAKING = [
     targets: [{ ph: 'ð', words: ['although','the','weather','they'] }, { ph: 'θ', words: ['through'] }] },
 ];
 
+
+// Minimal pairs for single-word pronunciation. `foil` is what a Mandarin speaker
+// typically produces instead; if the recognizer hears the foil, we know which sound slipped.
+export const MINIMAL_PAIRS = [
+  { word: 'think', foil: 'sink', ph: 'θ' }, { word: 'thick', foil: 'sick', ph: 'θ' }, { word: 'mouth', foil: 'mouse', ph: 'θ' },
+  { word: 'path', foil: 'pass', ph: 'θ' }, { word: 'thin', foil: 'sin', ph: 'θ' }, { word: 'three', foil: 'free', ph: 'θ' },
+  { word: 'they', foil: 'day', ph: 'ð' }, { word: 'then', foil: 'den', ph: 'ð' }, { word: 'those', foil: 'doze', ph: 'ð' },
+  { word: 'vest', foil: 'west', ph: 'v' }, { word: 'vine', foil: 'wine', ph: 'v' }, { word: 'vow', foil: 'wow', ph: 'v' }, { word: 'very', foil: 'wary', ph: 'v' },
+  { word: 'sheep', foil: 'ship', ph: 'iː/ɪ' }, { word: 'leave', foil: 'live', ph: 'iː/ɪ' }, { word: 'seat', foil: 'sit', ph: 'iː/ɪ' }, { word: 'feel', foil: 'fill', ph: 'iː/ɪ' },
+  { word: 'right', foil: 'light', ph: 'r/l' }, { word: 'rice', foil: 'lice', ph: 'r/l' }, { word: 'road', foil: 'load', ph: 'r/l' }, { word: 'fry', foil: 'fly', ph: 'r/l' },
+  { word: 'bad', foil: 'bat', ph: 'final consonants' }, { word: 'bag', foil: 'back', ph: 'final consonants' }, { word: 'cab', foil: 'cap', ph: 'final consonants' }, { word: 'dog', foil: 'dock', ph: 'final consonants' },
+  { word: 'cold', foil: 'code', ph: 'l (final)' }, { word: 'told', foil: 'toad', ph: 'l (final)' }, { word: 'wild', foil: 'wide', ph: 'l (final)' },
+  { word: 'thing', foil: 'thin', ph: 'n/ŋ' }, { word: 'sing', foil: 'sin', ph: 'n/ŋ' }, { word: 'wing', foil: 'win', ph: 'n/ŋ' },
+  { word: 'bed', foil: 'bad', ph: 'æ/e' }, { word: 'men', foil: 'man', ph: 'æ/e' }, { word: 'set', foil: 'sat', ph: 'æ/e' },
+  { word: 'asked', foil: 'ask', ph: 'clusters' }, { word: 'months', foil: 'month', ph: 'clusters' }, { word: 'world', foil: 'word', ph: 'clusters' },
+];
+
 // What each sound is, in the learner's language, for the result screen.
 export const PHONEME_NOTES = {
   'θ': { en: '"th" as in think', zh: '清齒音 th（think）' },
@@ -66,6 +83,8 @@ export const PHONEME_NOTES = {
   'l (final)': { en: 'the "l" at the end of words', zh: '字尾的 l 音' },
   'r/l': { en: '"r" vs "l"', zh: 'r 與 l 的分別' },
   'final consonants': { en: 'final consonants (bad, big)', zh: '字尾子音（bad, big）' },
+  'n/ŋ': { en: '"n" vs "ng" (thin/thing)', zh: '前後鼻音 n / ng（thin / thing）' },
+  'æ/e': { en: '"a" vs "e" (bad/bed)', zh: '母音 a / e（bad / bed）' },
 };
 
 export const STRINGS = {
@@ -74,6 +93,14 @@ export const STRINGS = {
     tagline: 'Offline English for Mandarin speakers.',
     start: 'Find my level',
     speakOnly: 'Just speaking',
+    wordsOnly: 'Word sounds',
+    wordTitle: 'Say this word',
+    wordHint: 'One word. Tap Record, say it once, then stop.',
+    good: 'Good',
+    soundsLike: 'Sounded like',
+    unclear: 'Could not tell. Say it again.',
+    words: 'Words',
+    wordResults: 'Word sounds',
     continueTest: 'Continue',
     startOver: 'Start over',
     vocabTitle: 'Do you know this word?',
@@ -116,6 +143,14 @@ export const STRINGS = {
     tagline: '給華語使用者的離線英語學習。',
     start: '測試我的程度',
     speakOnly: '只練口說',
+    wordsOnly: '單字發音',
+    wordTitle: '請唸這個字',
+    wordHint: '只唸一個字。按錄音，唸一次，再按停止。',
+    good: '正確',
+    soundsLike: '聽起來像',
+    unclear: '聽不清楚，請再唸一次。',
+    words: '單字',
+    wordResults: '單字發音',
     continueTest: '繼續',
     startOver: '重新開始',
     vocabTitle: '你認識這個字嗎？',

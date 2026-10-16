@@ -4,7 +4,8 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { LearnerModel, thetaToCefr, probability } from '../js/core/LearnerModel.js';
 import { VocabPlacement } from '../js/core/VocabPlacement.js';
 import { SpeechAssessor, alignWords, normalizeWords } from '../js/core/SpeechAssessor.js';
-import { VOCAB, PSEUDOWORDS, SPEAKING, BANDS } from '../js/data/pack-en-zh.js';
+import { WordDrill } from '../js/core/WordDrill.js';
+import { VOCAB, PSEUDOWORDS, SPEAKING, BANDS, MINIMAL_PAIRS, PHONEME_NOTES } from '../js/data/pack-en-zh.js';
 
 let passed = 0;
 const test = (name, fn) => { try { fn(); passed++; } catch (e) { console.error('FAIL', name); throw e; } };
@@ -72,6 +73,20 @@ test('assessor turns misses into phoneme evidence and updates speaking', () => {
   assert.ok(L.skill('speaking').tested);
   A.assess(SPEAKING[0], 'I sink the tree sieves are dirty');
   assert.equal(L.weakPhonemes(2)[0].ph, 'θ');
+});
+
+test('word drill judges hits, foils and noise; weak sounds come up more', () => {
+  const L = new LearnerModel();
+  for (let i = 0; i < 3; i++) L.recordPhoneme('θ', false);
+  const d = new WordDrill({ pairs: MINIMAL_PAIRS, learner: L, count: 10, seed: 5 });
+  assert.equal(d.items.length, 10);
+  assert.ok(d.items.filter(x => x.ph === 'θ').length >= 2, 'weak sound should be favoured');
+  for (let i = 1; i < d.items.length; i++) assert.notEqual(d.items[i].ph, d.items[i - 1].ph);
+  const it = d.current;
+  assert.equal(d.judge(it.word).verdict, 'hit');
+  assert.equal(d.judge('um ' + it.foil).verdict, 'foil');
+  assert.equal(d.judge('banana').verdict, 'other');
+  for (const p of MINIMAL_PAIRS) assert.ok(PHONEME_NOTES[p.ph], `no note for ${p.ph}`);
 });
 
 test('data pack is consistent', () => {

@@ -39,7 +39,7 @@ p { margin: 0; max-width: 34em; }
 .lede { font-size: 1.15rem; }
 .muted { color: var(--muted); } .small { font-size: 0.85rem; }
 .hero { display: flex; flex-direction: column; gap: 14px; padding-block: 40px 0; }
-.hero .row { margin-top: 10px; }
+.hero .row { margin-top: 10px; } .hero .row + button { align-self: stretch; }
 
 button { font: inherit; font-weight: 600; border-radius: 10px; padding: 13px 18px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; min-height: 48px; }
 button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
@@ -56,6 +56,10 @@ button:disabled { opacity: 0.45; cursor: default; }
 .card.big { min-height: 150px; display: grid; place-items: center; }
 .word { font-family: var(--display); font-size: 2.4rem; font-weight: 500; letter-spacing: 0.01em; word-break: break-word; text-align: center; }
 .word.pop { animation: pop 180ms ease-out; }
+.word.ok { color: var(--good); } .word.bad { color: var(--bad); }
+.verdict { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 2.6em; text-align: center; }
+.verdict .good { color: var(--good); font-weight: 600; } .verdict .bad { color: var(--bad); font-weight: 600; }
+.card.big { gap: 8px; }
 @keyframes pop { from { opacity: 0; transform: translateY(6px); } }
 .progress { display: flex; align-items: center; gap: 10px; }
 .bar { flex: 1; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }

@@ -4,7 +4,8 @@
 import { LearnerModel, SKILLS } from '../core/LearnerModel.js';
 import { VocabPlacement } from '../core/VocabPlacement.js';
 import { SpeechAssessor } from '../core/SpeechAssessor.js';
-import { VOCAB, PSEUDOWORDS, SPEAKING, PHONEME_NOTES, STRINGS } from '../data/pack-en-zh.js';
+import { WordDrill } from '../core/WordDrill.js';
+import { VOCAB, PSEUDOWORDS, SPEAKING, MINIMAL_PAIRS, PHONEME_NOTES, STRINGS } from '../data/pack-en-zh.js';
 
 const h = (tag, attrs = {}, ...children) => {
   const el = document.createElement(tag);
@@ -45,7 +46,7 @@ export class App {
   toggleLang() { this.lang = this.lang === 'en' ? 'zh' : 'en'; document.documentElement.lang = this.lang === 'zh' ? 'zh-Hant' : 'en'; this.save(); this.show(this.screen); }
   show(name) {
     this.screen = name;
-    const Screen = { home: HomeScreen, vocab: VocabScreen, speak: SpeakScreen, profile: ProfileScreen }[name];
+    const Screen = { home: HomeScreen, vocab: VocabScreen, speak: SpeakScreen, words: WordScreen, profile: ProfileScreen }[name];
     this.root.replaceChildren();
     this.root.append(this.topBar());
     const body = h('main', { class: 'screen', 'data-screen': name });
@@ -81,7 +82,8 @@ class HomeScreen {
         h('p', { class: 'muted' }, a.lang === 'zh' ? '約 5 分鐘：字彙 2 分鐘，口說 2 分鐘。' : 'About 5 minutes: vocabulary, then speaking.'),
         h('div', { class: 'row' },
           h('button', { class: 'primary', id: 'start', onclick: () => a.show('vocab') }, a.t('start')),
-          h('button', { class: 'secondary', id: 'speakOnly', onclick: () => a.show('speak') }, a.t('speakOnly')))));
+          h('button', { class: 'secondary', id: 'speakOnly', onclick: () => a.show('speak') }, a.t('speakOnly'))),
+        h('button', { class: 'secondary', id: 'wordsOnly', onclick: () => a.show('words') }, a.t('wordsOnly'))));
   }
 }
 
@@ -125,48 +127,27 @@ class VocabScreen {
   }
 }
 
-class SpeakScreen {
-  constructor(app) { this.app = app; this.i = 0; this.assessor = new SpeechAssessor({ learner: app.learner }); this.results = []; }
-  // Four sentences per probe, spread over the sound targets; the rest stay for later sessions.
-  get set() { return SPEAKING.slice(0, 4); }
-  mount(root) {
-    const a = this.app;
-    this.root = root;
-    this.bar = h('div', { class: 'bar' }, h('i'));
-    this.sentence = h('div', { class: 'sentence', id: 'sentence' });
-    this.heard = h('div', { class: 'heard', id: 'heard' });
+// MicPanel: the recording control shared by every speaking screen.
+// Owns the Record button, status line, event trace and the typed fallback box.
+class MicPanel {
+  constructor(app, { onText, placeholder }) {
+    this.app = app; this.onText = onText;
     this.status = h('p', { class: 'muted small', id: 'status' });
     this.trace = h('p', { class: 'muted small trace', id: 'trace' });
-    this.input = h('textarea', { id: 'transcript', rows: 2, placeholder: a.t('typeFallback'), autocapitalize: 'off', autocorrect: 'off' });
-    this.recBtn = h('button', { class: 'primary mic', id: 'rec', onclick: () => this.toggleRecord() }, a.t('record'));
-    this.nextBtn = h('button', { class: 'primary', id: 'next', disabled: true, onclick: () => this.next() }, a.t('next'));
-    root.append(
-      h('div', { class: 'progress' }, this.bar),
-      h('h2', {}, a.t('speakTitle')),
-      h('p', { class: 'muted' }, a.t('speakHint')),
-      h('div', { class: 'card' }, this.sentence,
-        h('div', { class: 'row left' },
-          h('button', { class: 'ghost', id: 'listen', onclick: () => a.platform.speaker.speak(this.cur.text) }, '▶ ' + a.t('listen')))),
-      h('div', { class: 'row' }, this.recBtn, this.nextBtn),
-      this.status,
-      this.input,
-      this.heard,
-      this.trace);
-    this.input.addEventListener('input', () => { if (this.input.value.trim()) this.assessTyped(); });
-    this.showSentence();
+    this.heard = h('div', { class: 'heard', id: 'heard' });
+    this.input = h('textarea', { id: 'transcript', rows: 1, placeholder: placeholder ?? app.t('typeFallback'), autocapitalize: 'off', autocorrect: 'off' });
+    this.recBtn = h('button', { class: 'primary mic', id: 'rec', onclick: () => this.toggleRecord() }, app.t('record'));
+    this.input.addEventListener('input', () => { clearTimeout(this.typeTimer); if (this.input.value.trim()) this.typeTimer = setTimeout(() => this.deliver(this.input.value), 600); });
   }
-  get cur() { return this.set[this.i]; }
-  showSentence() {
-    const a = this.app;
-    this.sentence.replaceChildren(...this.cur.text.split(' ').map(w => h('span', { class: 'w' }, w + ' ')));
-    this.heard.replaceChildren(); this.input.value = ''; this.nextBtn.disabled = true; this.assessed = null;
-    this.trace.textContent = ''; this.events = []; this.retried = false;
-    this.bar.firstChild.style.width = `${Math.round((this.i / this.set.length) * 100)}%`;
-    const rec = a.platform.recognizer;
+  get elements() { return [this.status, this.input, this.heard, this.trace]; }
+  reset() {
+    const a = this.app, rec = a.platform.recognizer;
+    this.heard.textContent = ''; this.input.value = ''; this.trace.textContent = ''; this.events = []; this.retried = false;
     rec.abort(); this.stopUi();
-    if (rec.name === 'keyboard') { this.recBtn.hidden = true; this.status.textContent = a.t('micDenied'); this.input.focus(); }
+    if (rec.name === 'keyboard') { this.recBtn.hidden = true; this.status.textContent = a.t('micDenied'); }
     else { this.recBtn.hidden = false; this.status.textContent = ''; }
   }
+  deliver(text) { this.heard.textContent = this.app.t('heard') + ' ' + (text || '—'); this.onText(text); }
   async toggleRecord() {
     const a = this.app; const rec = a.platform.recognizer;
     if (this.recording) { rec.stop(); this.recBtn.textContent = '…'; return; }
@@ -179,11 +160,11 @@ class SpeakScreen {
         lang: 'en-US',
         onEvent: (e) => { this.events.push(e); this.trace.textContent = this.events.join(' · '); },
         onInterim: (t) => { if (seq === this.seq) this.heard.textContent = a.t('heard') + ' ' + t; },
-        onFinal: (t) => { if (seq !== this.seq) return; this.stopUi(); if (t) { this.retried = false; this.apply(t); } else if (!this.status.textContent) this.status.textContent = a.t('nothingHeard'); },
+        onFinal: (t) => { if (seq !== this.seq) return; this.stopUi(); if (t) { this.retried = false; this.deliver(t); } else if (!this.status.textContent) this.status.textContent = a.t('nothingHeard'); },
         onError: (err) => {
           if (seq !== this.seq) return;
           this.stopUi();
-          if (!rec.available) { this.showSentence(); return; }
+          if (!rec.available) { this.reset(); return; }
           if (err === 'no-speech') { this.status.textContent = a.t('nothingHeard'); return; }
           // iOS Safari: a later session can fail at once with not-allowed/aborted. One automatic retry.
           if (!this.retried) { this.retried = true; this.status.textContent = a.t('retrying'); setTimeout(() => this.toggleRecord(), 400); return; }
@@ -193,22 +174,93 @@ class SpeakScreen {
     } catch (e) { this.stopUi(); this.status.textContent = `${a.t('micError')} (${e?.name || e}). ${a.t('tapAgain')}`; }
   }
   stopUi() { this.recording = false; this.recBtn.textContent = this.app.t('record'); this.recBtn.classList.remove('live'); if (this.status.textContent === this.app.t('listening_')) this.status.textContent = ''; }
-  assessTyped() { clearTimeout(this.typeTimer); this.typeTimer = setTimeout(() => this.apply(this.input.value), 600); }
-  apply(transcript) {
+}
+
+class SpeakScreen {
+  constructor(app) { this.app = app; this.i = 0; this.assessor = new SpeechAssessor({ learner: app.learner }); this.results = []; }
+  // Four sentences per probe, spread over the sound targets; the rest stay for later sessions.
+  get set() { return SPEAKING.slice(0, 4); }
+  mount(root) {
     const a = this.app;
+    this.bar = h('div', { class: 'bar' }, h('i'));
+    this.sentence = h('div', { class: 'sentence', id: 'sentence' });
+    this.mic = new MicPanel(a, { onText: (t) => this.apply(t) });
+    this.nextBtn = h('button', { class: 'primary', id: 'next', disabled: true, onclick: () => this.next() }, a.t('next'));
+    root.append(
+      h('div', { class: 'progress' }, this.bar),
+      h('h2', {}, a.t('speakTitle')),
+      h('p', { class: 'muted' }, a.t('speakHint')),
+      h('div', { class: 'card' }, this.sentence,
+        h('div', { class: 'row left' },
+          h('button', { class: 'ghost', id: 'listen', onclick: () => a.platform.speaker.speak(this.cur.text) }, '▶ ' + a.t('listen')))),
+      h('div', { class: 'row' }, this.mic.recBtn, this.nextBtn),
+      ...this.mic.elements);
+    this.showSentence();
+  }
+  get cur() { return this.set[this.i]; }
+  showSentence() {
+    this.sentence.replaceChildren(...this.cur.text.split(' ').map(w => h('span', { class: 'w' }, w + ' ')));
+    this.nextBtn.disabled = true; this.assessed = null;
+    this.bar.firstChild.style.width = `${Math.round((this.i / this.set.length) * 100)}%`;
+    this.mic.reset();
+  }
+  apply(transcript) {
     const r = this.assessor.assess(this.cur, transcript);
     this.assessed = r; this.results.push({ id: this.cur.id, ...r });
     this.sentence.replaceChildren(...r.words.map(x => h('span', { class: 'w ' + x.status, title: x.heardAs || '' }, x.display + ' ')));
-    this.heard.textContent = a.t('heard') + ' ' + (r.heard || '—');
     this.nextBtn.disabled = false;
-    a.refreshStrip();
+    this.app.refreshStrip();
   }
   async next() {
     this.i++;
     await this.app.save();
     if (this.i >= this.set.length) return this.app.show('profile');
-    // Re-run the assessor fresh against the next sentence: scores above were already recorded once.
     this.showSentence();
+  }
+}
+
+class WordScreen {
+  constructor(app) { this.app = app; this.drill = new WordDrill({ pairs: MINIMAL_PAIRS, learner: app.learner, seed: (Date.now() % 100000) | 1 }); }
+  mount(root) {
+    const a = this.app;
+    this.bar = h('div', { class: 'bar' }, h('i'));
+    this.word = h('div', { class: 'word', id: 'word' });
+    this.verdict = h('div', { class: 'verdict', id: 'verdict' });
+    this.mic = new MicPanel(a, { onText: (t) => this.apply(t), placeholder: a.t('typeFallback') });
+    this.nextBtn = h('button', { class: 'primary', id: 'next', disabled: true, onclick: () => this.next() }, a.t('next'));
+    root.append(
+      h('div', { class: 'progress' }, this.bar),
+      h('h2', {}, a.t('wordTitle')),
+      h('p', { class: 'muted' }, a.t('wordHint')),
+      h('div', { class: 'card big' }, this.word, this.verdict,
+        h('button', { class: 'ghost', id: 'listen', onclick: () => a.platform.speaker.speak(this.drill.current.word) }, '▶ ' + a.t('listen'))),
+      h('div', { class: 'row' }, this.mic.recBtn, this.nextBtn),
+      ...this.mic.elements);
+    this.showWord();
+  }
+  showWord() {
+    const item = this.drill.current;
+    this.word.textContent = item.word; this.word.className = 'word';
+    this.verdict.replaceChildren();
+    this.nextBtn.disabled = true;
+    this.bar.firstChild.style.width = `${Math.round(this.drill.progress * 100)}%`;
+    this.mic.reset();
+  }
+  apply(transcript) {
+    const a = this.app;
+    const r = this.drill.judge(transcript); if (!r) return;
+    const note = PHONEME_NOTES[r.item.ph]?.[a.lang] ?? r.item.ph;
+    if (r.verdict === 'hit') { this.word.className = 'word ok'; this.verdict.replaceChildren(h('span', { class: 'good' }, '✓ ' + a.t('good'))); }
+    else if (r.verdict === 'foil') { this.word.className = 'word bad'; this.verdict.replaceChildren(h('span', { class: 'bad' }, `${a.t('soundsLike')} “${r.item.foil}”`), h('span', { class: 'muted small' }, note)); }
+    else { this.word.className = 'word'; this.verdict.replaceChildren(h('span', { class: 'muted' }, a.t('unclear'))); }
+    this.nextBtn.disabled = r.verdict === 'other' && !r.heard;
+    a.refreshStrip();
+  }
+  async next() {
+    this.drill.next();
+    await this.app.save();
+    if (this.drill.finished) return this.app.show('profile');
+    this.showWord();
   }
 }
 
@@ -238,6 +290,7 @@ class ProfileScreen {
       h('p', { class: 'muted small' }, a.t('nextStep')),
       h('div', { class: 'row' },
         h('button', { class: 'secondary', id: 'reset', onclick: () => a.reset() }, a.t('startOver')),
+        h('button', { class: 'secondary', id: 'words', onclick: () => a.show('words') }, a.t('words') + ' ↻'),
         h('button', { class: 'primary', id: 'again', onclick: () => a.show('speak') }, a.t('speaking') + ' ↻'))].filter(Boolean));
   }
 }
