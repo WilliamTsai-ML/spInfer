@@ -9,6 +9,8 @@ export class Recognizer {
   // start({lang, onInterim(text), onFinal(text), onError(err)}); resolves when listening has begun.
   async start(_opts) { throw new Error('not implemented'); }
   stop() {}
+  abort() {}
+  get listening() { return false; }
 }
 
 export class Speaker {

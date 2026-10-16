@@ -12,28 +12,63 @@ export class WebSpeechRecognizer extends Recognizer {
   }
   get available() { return !!this.SR && !this.failed; }
   get name() { return 'web-speech'; }
-  async start({ lang = 'en-US', onInterim, onFinal, onError }) {
+  get listening() { return !!this.rec; }
+  // iOS Safari sometimes never fires onend for a second session, and often delivers
+  // only interim results. So: abort any previous session, keep the best text seen so far,
+  // and finish on a watchdog if the browser never says it ended.
+  async start({ lang = 'en-US', onInterim, onFinal, onError, onEvent }) {
     if (!this.available) throw new Error('unavailable');
+    this.abort();
     const rec = new this.SR();
     rec.lang = lang; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
-    let finalText = '';
+    let finalText = '', lastText = '', done = false;
+    const finish = (why) => {
+      if (done) return; done = true;
+      clearTimeout(this.watchdog); clearTimeout(this.maxTimer);
+      if (this.rec === rec) this.rec = null;
+      onEvent?.('finish:' + why);
+      onFinal?.((finalText.trim() || lastText).trim());
+    };
+    rec.onstart = () => onEvent?.('start');
+    rec.onaudiostart = () => onEvent?.('audio');
+    rec.onspeechend = () => onEvent?.('speechend');
     rec.onresult = (e) => {
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript;
         if (e.results[i].isFinal) finalText += t + ' '; else interim += t;
       }
-      onInterim?.((finalText + interim).trim());
+      lastText = (finalText + interim).trim() || lastText;
+      onEvent?.('result');
+      onInterim?.(lastText);
     };
     rec.onerror = (e) => {
+      onEvent?.('error:' + e.error);
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'audio-capture') this.failed = true;
-      onError?.(e.error || 'error');
+      if (e.error !== 'aborted') onError?.(e.error || 'error');
+      if (e.error !== 'no-speech') finish('error');
     };
-    rec.onend = () => { this.rec = null; onFinal?.(finalText.trim()); };
+    rec.onend = () => finish('end');
     this.rec = rec;
-    rec.start();
+    // Hard cap so a stuck session cannot hang the screen.
+    this.maxTimer = setTimeout(() => { try { rec.stop(); } catch {} ; setTimeout(() => finish('timeout'), 800); }, 15000);
+    this.finishNow = finish;
+    try { rec.start(); } catch (err) { finish('start-failed'); throw err; }
   }
-  stop() { try { this.rec?.stop(); } catch { /* already stopped */ } }
+  stop() {
+    const rec = this.rec; if (!rec) return;
+    try { rec.stop(); } catch { /* already stopped */ }
+    // If iOS never reports the end, close it ourselves.
+    clearTimeout(this.watchdog);
+    this.watchdog = setTimeout(() => this.finishNow?.('watchdog'), 1500);
+  }
+  abort() {
+    const rec = this.rec; if (!rec) return;
+    this.rec = null;
+    rec.onend = rec.onerror = rec.onresult = null;
+    clearTimeout(this.watchdog); clearTimeout(this.maxTimer);
+    try { rec.abort(); } catch { /* ignore */ }
+  }
 }
 
 // Fallback that always works: the learner uses the keyboard's own dictation button.

@@ -136,6 +136,7 @@ class SpeakScreen {
     this.sentence = h('div', { class: 'sentence', id: 'sentence' });
     this.heard = h('div', { class: 'heard', id: 'heard' });
     this.status = h('p', { class: 'muted small', id: 'status' });
+    this.trace = h('p', { class: 'muted small trace', id: 'trace' });
     this.input = h('textarea', { id: 'transcript', rows: 2, placeholder: a.t('typeFallback'), autocapitalize: 'off', autocorrect: 'off' });
     this.recBtn = h('button', { class: 'primary mic', id: 'rec', onclick: () => this.toggleRecord() }, a.t('record'));
     this.nextBtn = h('button', { class: 'primary', id: 'next', disabled: true, onclick: () => this.next() }, a.t('next'));
@@ -149,7 +150,8 @@ class SpeakScreen {
       h('div', { class: 'row' }, this.recBtn, this.nextBtn),
       this.status,
       this.input,
-      this.heard);
+      this.heard,
+      this.trace);
     this.input.addEventListener('input', () => { if (this.input.value.trim()) this.assessTyped(); });
     this.showSentence();
   }
@@ -158,22 +160,27 @@ class SpeakScreen {
     const a = this.app;
     this.sentence.replaceChildren(...this.cur.text.split(' ').map(w => h('span', { class: 'w' }, w + ' ')));
     this.heard.replaceChildren(); this.input.value = ''; this.nextBtn.disabled = true; this.assessed = null;
+    this.trace.textContent = ''; this.events = [];
     this.bar.firstChild.style.width = `${Math.round((this.i / this.set.length) * 100)}%`;
     const rec = a.platform.recognizer;
+    rec.abort(); this.stopUi();
     if (rec.name === 'keyboard') { this.recBtn.hidden = true; this.status.textContent = a.t('micDenied'); this.input.focus(); }
     else { this.recBtn.hidden = false; this.status.textContent = ''; }
   }
   async toggleRecord() {
     const a = this.app; const rec = a.platform.recognizer;
-    if (this.recording) { rec.stop(); return; }
+    if (this.recording) { rec.stop(); this.recBtn.textContent = '…'; return; }
+    a.platform.speaker.stop(); // free the audio session before recording
     this.recording = true; this.recBtn.textContent = '■ ' + a.t('stop'); this.recBtn.classList.add('live');
-    this.status.textContent = a.t('listening_');
+    this.status.textContent = a.t('listening_'); this.heard.textContent = '';
+    const seq = (this.seq = (this.seq || 0) + 1);
     try {
       await rec.start({
         lang: 'en-US',
-        onInterim: (t) => { this.heard.textContent = a.t('heard') + ' ' + t; },
-        onFinal: (t) => { this.stopUi(); if (t) this.apply(t); },
-        onError: (err) => { this.stopUi(); this.status.textContent = err === 'no-speech' ? '' : a.t('micDenied'); if (!rec.available) this.showSentence(); },
+        onEvent: (e) => { this.events.push(e); this.trace.textContent = this.events.join(' · '); },
+        onInterim: (t) => { if (seq === this.seq) this.heard.textContent = a.t('heard') + ' ' + t; },
+        onFinal: (t) => { if (seq !== this.seq) return; this.stopUi(); if (t) this.apply(t); else this.status.textContent = a.t('nothingHeard'); },
+        onError: (err) => { if (seq !== this.seq) return; this.stopUi(); this.status.textContent = err === 'no-speech' ? a.t('nothingHeard') : a.t('micDenied'); if (!rec.available) this.showSentence(); },
       });
     } catch { this.stopUi(); this.showSentence(); }
   }
