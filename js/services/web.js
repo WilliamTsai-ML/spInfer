@@ -19,11 +19,15 @@ export class WebSpeechRecognizer extends Recognizer {
   async start({ lang = 'en-US', onInterim, onFinal, onError, onEvent }) {
     if (!this.available) throw new Error('unavailable');
     this.abort();
+    // iOS Safari aborts a session that starts within ~1 s of the previous one ending.
+    const gap = 1000 - (Date.now() - (this.endedAt || 0));
+    if (gap > 0) { onEvent?.('wait'); await new Promise(r => setTimeout(r, gap)); }
     const rec = new this.SR();
     rec.lang = lang; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
     let finalText = '', lastText = '', done = false;
     const finish = (why) => {
       if (done) return; done = true;
+      this.endedAt = Date.now();
       clearTimeout(this.watchdog); clearTimeout(this.maxTimer);
       if (this.rec === rec) this.rec = null;
       onEvent?.('finish:' + why);
@@ -49,10 +53,11 @@ export class WebSpeechRecognizer extends Recognizer {
       // 'not-allowed' or 'aborted' for later sessions even when the mic was granted.
       if (!this.everWorked && (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'audio-capture')) this.failed = true;
       if (lastText) return; // we already have text; let onend deliver it
-      if (e.error !== 'aborted') onError?.(e.error || 'error');
+      if (this.rec !== rec) return; // we aborted it ourselves
+      onError?.(e.error || 'error');
       if (e.error !== 'no-speech') finish('error');
     };
-    rec.onend = () => { if (lastText) this.everWorked = true; finish('end'); };
+    rec.onend = () => { if (lastText) this.everWorked = true; this.endedAt = Date.now(); finish('end'); };
     this.rec = rec;
     // Hard cap so a stuck session cannot hang the screen.
     this.maxTimer = setTimeout(() => { try { rec.stop(); } catch {} ; setTimeout(() => finish('timeout'), 800); }, 15000);
@@ -101,7 +106,7 @@ export class WebSpeaker extends Speaker {
       window.speechSynthesis.speak(u);
     });
   }
-  stop() { if (this.available) window.speechSynthesis.cancel(); }
+  stop() { if (this.available && (window.speechSynthesis.speaking || window.speechSynthesis.pending)) window.speechSynthesis.cancel(); }
 }
 
 export class LocalStore extends Store {

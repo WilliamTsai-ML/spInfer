@@ -167,7 +167,7 @@ class MicPanel {
           if (!rec.available) { this.reset(); return; }
           if (err === 'no-speech') { this.status.textContent = a.t('nothingHeard'); return; }
           // iOS Safari: a later session can fail at once with not-allowed/aborted. One automatic retry.
-          if (!this.retried) { this.retried = true; this.status.textContent = a.t('retrying'); setTimeout(() => this.toggleRecord(), 400); return; }
+          if (!this.retried) { this.retried = true; this.status.textContent = a.t('retrying'); setTimeout(() => this.toggleRecord(), 300); return; }
           this.status.textContent = `${a.t('micError')} (${err}). ${a.t('tapAgain')}`;
         },
       });
