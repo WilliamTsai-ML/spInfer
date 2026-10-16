@@ -33,6 +33,7 @@ export class WebSpeechRecognizer extends Recognizer {
     rec.onaudiostart = () => onEvent?.('audio');
     rec.onspeechend = () => onEvent?.('speechend');
     rec.onresult = (e) => {
+      this.everWorked = true;
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript;
@@ -44,11 +45,14 @@ export class WebSpeechRecognizer extends Recognizer {
     };
     rec.onerror = (e) => {
       onEvent?.('error:' + e.error);
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'audio-capture') this.failed = true;
+      // Only give up on the mic if it has never worked on this page. iOS Safari reports
+      // 'not-allowed' or 'aborted' for later sessions even when the mic was granted.
+      if (!this.everWorked && (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'audio-capture')) this.failed = true;
+      if (lastText) return; // we already have text; let onend deliver it
       if (e.error !== 'aborted') onError?.(e.error || 'error');
       if (e.error !== 'no-speech') finish('error');
     };
-    rec.onend = () => finish('end');
+    rec.onend = () => { if (lastText) this.everWorked = true; finish('end'); };
     this.rec = rec;
     // Hard cap so a stuck session cannot hang the screen.
     this.maxTimer = setTimeout(() => { try { rec.stop(); } catch {} ; setTimeout(() => finish('timeout'), 800); }, 15000);

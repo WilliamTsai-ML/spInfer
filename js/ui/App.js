@@ -160,7 +160,7 @@ class SpeakScreen {
     const a = this.app;
     this.sentence.replaceChildren(...this.cur.text.split(' ').map(w => h('span', { class: 'w' }, w + ' ')));
     this.heard.replaceChildren(); this.input.value = ''; this.nextBtn.disabled = true; this.assessed = null;
-    this.trace.textContent = ''; this.events = [];
+    this.trace.textContent = ''; this.events = []; this.retried = false;
     this.bar.firstChild.style.width = `${Math.round((this.i / this.set.length) * 100)}%`;
     const rec = a.platform.recognizer;
     rec.abort(); this.stopUi();
@@ -179,10 +179,18 @@ class SpeakScreen {
         lang: 'en-US',
         onEvent: (e) => { this.events.push(e); this.trace.textContent = this.events.join(' · '); },
         onInterim: (t) => { if (seq === this.seq) this.heard.textContent = a.t('heard') + ' ' + t; },
-        onFinal: (t) => { if (seq !== this.seq) return; this.stopUi(); if (t) this.apply(t); else this.status.textContent = a.t('nothingHeard'); },
-        onError: (err) => { if (seq !== this.seq) return; this.stopUi(); this.status.textContent = err === 'no-speech' ? a.t('nothingHeard') : a.t('micDenied'); if (!rec.available) this.showSentence(); },
+        onFinal: (t) => { if (seq !== this.seq) return; this.stopUi(); if (t) { this.retried = false; this.apply(t); } else if (!this.status.textContent) this.status.textContent = a.t('nothingHeard'); },
+        onError: (err) => {
+          if (seq !== this.seq) return;
+          this.stopUi();
+          if (!rec.available) { this.showSentence(); return; }
+          if (err === 'no-speech') { this.status.textContent = a.t('nothingHeard'); return; }
+          // iOS Safari: a later session can fail at once with not-allowed/aborted. One automatic retry.
+          if (!this.retried) { this.retried = true; this.status.textContent = a.t('retrying'); setTimeout(() => this.toggleRecord(), 400); return; }
+          this.status.textContent = `${a.t('micError')} (${err}). ${a.t('tapAgain')}`;
+        },
       });
-    } catch { this.stopUi(); this.showSentence(); }
+    } catch (e) { this.stopUi(); this.status.textContent = `${a.t('micError')} (${e?.name || e}). ${a.t('tapAgain')}`; }
   }
   stopUi() { this.recording = false; this.recBtn.textContent = this.app.t('record'); this.recBtn.classList.remove('live'); if (this.status.textContent === this.app.t('listening_')) this.status.textContent = ''; }
   assessTyped() { clearTimeout(this.typeTimer); this.typeTimer = setTimeout(() => this.apply(this.input.value), 600); }
