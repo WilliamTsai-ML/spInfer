@@ -1,0 +1,146 @@
+// Language pack: English for Traditional-Chinese (Mandarin) speakers.
+// Pure data. Adding another pair means adding another file like this one.
+
+export const PACK_ID = 'en-zhHant';
+
+// CEFR band -> difficulty on a logit scale (0 = B1). Shared by every skill.
+export const BANDS = { A1: -2, A2: -1, B1: 0, B2: 1, C1: 2, C2: 3 };
+
+// Vocabulary bank for the yes/no placement test.
+// Words are grouped by CEFR band (frequency lists: Oxford 3000/5000, CEFR-J).
+export const VOCAB = {
+  A1: ['house','water','friend','morning','happy','school','eat','big','family','book',
+       'window','teacher','cold','animal','question','money','breakfast','holiday','sister','tomorrow',
+       'color','rain','market','cheap','shoe'],
+  A2: ['journey','advice','furniture','nervous','improve','borrow','decide','neighbor','weather','culture',
+       'invite','receipt','recipe','afford','environment','apologize','opinion','promise','rubbish','spare',
+       'cancel','ordinary','complain','relax','crowded'],
+  B1: ['accurate','ambition','negotiate','reluctant','threat','witness','fluent','budget','convince','curious',
+       'generous','manage','persuade','satisfy','trend','approach','benefit','demand','efficient','evidence',
+       'gradually','harm','insist','obvious','rely'],
+  B2: ['compelling','ambiguous','deteriorate','implicit','inevitable','notion','scrutiny','subsequent','undermine','viable',
+       'contemplate','discrepancy','elaborate','feasible','hinder','integrity','legitimate','nuance','pragmatic','resilient',
+       'tangible','thrive','underlying','vulnerable','warrant'],
+  C1: ['ubiquitous','ephemeral','meticulous','pernicious','quintessential','austere','belligerent','candid','disparate','egregious',
+       'fastidious','gregarious','incongruous','juxtapose','lucid','magnanimous','nefarious','obstinate','pervasive','reticent',
+       'salient','tenuous','unprecedented','vindicate','zealous'],
+  C2: ['abstruse','recondite','pulchritude','sesquipedalian','obfuscate','perspicacious','lugubrious','truculent','vicissitude','apotheosis',
+       'inchoate','sanguine','pellucid','tendentious','encomium','execrable','insouciant','mellifluous','parsimonious','querulous'],
+};
+
+// Plausible English-looking non-words. Saying "I know this" to one of these is a false alarm.
+export const PSEUDOWORDS = [
+  'blanter','crovel','dimpish','fenquit','grastle','hiblet','jorrick','kinmoth','lorvane','mertish',
+  'nandrel','ostrine','plimber','quandle','rastock','scurvet','tromble','ulvish','vantorn','wexlin',
+  'yardole','zembric','flothe','gribbish','sparnel','thurdle','vorpent','clendish','morrit','pendrake',
+];
+
+// Read-aloud sentences for the speaking probe.
+// Each target names a sound Mandarin speakers often struggle with and the words that carry it.
+export const SPEAKING = [
+  { id: 's1', text: 'I think the three thieves are thirty.', band: 'A2',
+    targets: [{ ph: 'θ', words: ['think','three','thieves','thirty'] }] },
+  { id: 's2', text: 'We have a very good view of the valley.', band: 'A2',
+    targets: [{ ph: 'v', words: ['have','very','view','valley'] }] },
+  { id: 's3', text: 'The ship left the sheep on the beach.', band: 'B1',
+    targets: [{ ph: 'iː/ɪ', words: ['ship','sheep','beach'] }] },
+  { id: 's4', text: 'She asked if the texts arrived last night.', band: 'B1',
+    targets: [{ ph: 'clusters', words: ['asked','texts','arrived','last'] }] },
+  { id: 's5', text: 'The old girl will call the world tall.', band: 'B1',
+    targets: [{ ph: 'l (final)', words: ['old','girl','call','world','tall'] }] },
+  { id: 's6', text: 'The red light is on the right road.', band: 'A2',
+    targets: [{ ph: 'r/l', words: ['red','light','right','road'] }] },
+  { id: 's7', text: 'Bad dogs bit the big bag and ran back.', band: 'B1',
+    targets: [{ ph: 'final consonants', words: ['bad','dogs','bit','big','bag','back'] }] },
+  { id: 's8', text: 'Although the weather was rough, they went through with the plan.', band: 'B2',
+    targets: [{ ph: 'ð', words: ['although','the','weather','they'] }, { ph: 'θ', words: ['through'] }] },
+];
+
+// What each sound is, in the learner's language, for the result screen.
+export const PHONEME_NOTES = {
+  'θ': { en: '"th" as in think', zh: '清齒音 th（think）' },
+  'ð': { en: '"th" as in this', zh: '濁齒音 th（this）' },
+  'v': { en: '"v" as in very (not "w")', zh: 'v 音（very），不是 w' },
+  'iː/ɪ': { en: 'long "ee" vs short "i" (sheep/ship)', zh: '長短母音 sheep / ship' },
+  'clusters': { en: 'consonant clusters (asked, texts)', zh: '連續子音（asked, texts）' },
+  'l (final)': { en: 'the "l" at the end of words', zh: '字尾的 l 音' },
+  'r/l': { en: '"r" vs "l"', zh: 'r 與 l 的分別' },
+  'final consonants': { en: 'final consonants (bad, big)', zh: '字尾子音（bad, big）' },
+};
+
+export const STRINGS = {
+  en: {
+    appName: 'Lantern English',
+    tagline: 'Offline English for Mandarin speakers.',
+    start: 'Find my level',
+    continueTest: 'Continue',
+    startOver: 'Start over',
+    vocabTitle: 'Do you know this word?',
+    vocabHint: 'Answer quickly. Some words are not real.',
+    know: 'I know it',
+    dontKnow: 'Not sure',
+    speakTitle: 'Read this aloud',
+    speakHint: 'Tap the mic, read the sentence, then stop.',
+    listen: 'Listen',
+    record: 'Record',
+    stop: 'Stop',
+    typeFallback: 'Or tap the mic on your keyboard and read the sentence.',
+    heard: 'Heard:',
+    next: 'Next',
+    skip: 'Skip',
+    done: 'See my profile',
+    profileTitle: 'Your profile',
+    vocab: 'Vocabulary',
+    speaking: 'Speaking',
+    listening: 'Listening',
+    grammar: 'Grammar',
+    notTested: 'not tested yet',
+    weakSounds: 'Sounds to work on',
+    noWeak: 'No specific sounds flagged.',
+    guessing: 'You said "I know it" to some made-up words. The vocabulary estimate was lowered a little.',
+    confidence: 'confidence',
+    itemsAnswered: 'items',
+    language: '中文',
+    micDenied: 'The microphone is not available here. Use the keyboard mic instead.',
+    listening_: 'Listening…',
+    nextStep: 'Next: listening and grammar probes, then daily lessons built from this profile.',
+    debug: 'Live model',
+  },
+  zh: {
+    appName: 'Lantern English',
+    tagline: '給華語使用者的離線英語學習。',
+    start: '測試我的程度',
+    continueTest: '繼續',
+    startOver: '重新開始',
+    vocabTitle: '你認識這個字嗎？',
+    vocabHint: '憑直覺快速回答。有些字是假的。',
+    know: '認識',
+    dontKnow: '不確定',
+    speakTitle: '請唸出這句話',
+    speakHint: '按下麥克風，唸完後按停止。',
+    listen: '聽範例',
+    record: '錄音',
+    stop: '停止',
+    typeFallback: '或按鍵盤上的麥克風，唸出句子。',
+    heard: '聽到：',
+    next: '下一句',
+    skip: '跳過',
+    done: '看我的結果',
+    profileTitle: '你的程度',
+    vocab: '字彙',
+    speaking: '口說',
+    listening: '聽力',
+    grammar: '文法',
+    notTested: '尚未測試',
+    weakSounds: '需要加強的發音',
+    noWeak: '沒有特別需要加強的發音。',
+    guessing: '你對幾個假字回答「認識」，字彙估計已略為下修。',
+    confidence: '信心',
+    itemsAnswered: '題',
+    language: 'EN',
+    micDenied: '這裡無法使用麥克風，請改用鍵盤上的麥克風。',
+    listening_: '聆聽中…',
+    nextStep: '下一步：聽力與文法測驗，然後依此程度產生每日課程。',
+    debug: '即時模型',
+  },
+};
