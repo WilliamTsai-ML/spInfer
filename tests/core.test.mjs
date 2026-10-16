@@ -42,9 +42,9 @@ function simulate(trueTheta, seed) {
 test('placement converges for A1, B1 and C1 learners', () => {
   for (const [trueTheta, band] of [[-2, 'A1'], [0, 'B1'], [2, 'C1']]) {
     let errSum = 0, n = 0;
-    for (let seed = 1; seed <= 20; seed++) { const r = simulate(trueTheta, seed); errSum += Math.abs(r.theta - trueTheta); n++; assert.ok(r.asked >= 18 && r.asked <= 36); }
+    for (let seed = 1; seed <= 20; seed++) { const r = simulate(trueTheta, seed); errSum += Math.abs(r.theta - trueTheta); n++; assert.ok(r.asked >= 12 && r.asked <= 24); }
     const mae = errSum / n;
-    assert.ok(mae < 0.75, `${band}: mean abs error ${mae.toFixed(2)} too large`);
+    assert.ok(mae < 0.85, `${band}: mean abs error ${mae.toFixed(2)} too large`);
   }
 });
 test('guessers get flagged', () => {

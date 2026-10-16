@@ -79,7 +79,9 @@ class HomeScreen {
         h('h1', {}, a.t('appName')),
         h('p', { class: 'lede' }, a.t('tagline')),
         h('p', { class: 'muted' }, a.lang === 'zh' ? '約 5 分鐘：字彙 2 分鐘，口說 2 分鐘。' : 'About 5 minutes: vocabulary, then speaking.'),
-        h('button', { class: 'primary', id: 'start', onclick: () => a.show('vocab') }, a.t('start'))));
+        h('div', { class: 'row' },
+          h('button', { class: 'primary', id: 'start', onclick: () => a.show('vocab') }, a.t('start')),
+          h('button', { class: 'secondary', id: 'speakOnly', onclick: () => a.show('speak') }, a.t('speakOnly')))));
   }
 }
 

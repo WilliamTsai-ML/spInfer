@@ -11,7 +11,7 @@ export function makeRng(seed = 1) {
 }
 
 export class VocabPlacement {
-  constructor({ vocab, pseudowords, learner, seed = 1, minItems = 18, maxItems = 36, targetSe = 0.45, pseudoEvery = 4 }) {
+  constructor({ vocab, pseudowords, learner, seed = 1, minItems = 12, maxItems = 24, targetSe = 0.55, pseudoEvery = 4 }) {
     this.learner = learner;
     this.skill = learner.skill('vocab');
     this.rng = makeRng(seed);
