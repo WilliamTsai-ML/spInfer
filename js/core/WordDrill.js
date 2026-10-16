@@ -2,8 +2,8 @@
 // Picks words weighted toward the learner's weak sounds and judges each attempt from
 // the recognizer's transcript: the word itself, its foil (a known confusion), or neither.
 
-import { normalizeWords } from './SpeechAssessor.js?v=8';
-import { makeRng } from './VocabPlacement.js?v=8';
+import { normalizeWords } from './SpeechAssessor.js?v=9';
+import { makeRng } from './VocabPlacement.js?v=9';
 
 export class WordDrill {
   constructor({ pairs, learner, count = 10, seed = 1 }) {

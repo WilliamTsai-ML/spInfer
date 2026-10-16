@@ -2,7 +2,7 @@
 // word by word, and turns misses into phoneme evidence.
 // Word-level for now; a phoneme-level acoustic scorer plugs in behind the same result shape later.
 
-import { BANDS } from '../data/pack-en-zh.js?v=8';
+import { BANDS } from '../data/pack-en-zh.js?v=9';
 
 export function normalizeWords(text) {
   return (text || '').toLowerCase().replace(/[^a-z'\s]/g, ' ').split(/\s+/).filter(Boolean);

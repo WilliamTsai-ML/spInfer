@@ -47,9 +47,11 @@ button:disabled { opacity: 0.45; cursor: default; }
 .primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .secondary { background: var(--surface); }
 .ghost { background: transparent; border-color: transparent; padding: 8px 10px; min-height: 36px; color: var(--accent); }
+.mic { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: none; }
 .mic.live { background: var(--bad); border-color: var(--bad); color: #fff; animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--bad) 25%, transparent); } }
-@media (prefers-reduced-motion: reduce) { .mic.live { animation: none; } .word.pop { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .mic { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: none; }
+.mic.live { animation: none; } .word.pop { animation: none; } }
 .row { display: flex; gap: 10px; } .row > button { flex: 1; } .row.left { justify-content: flex-start; } .row.left > button { flex: 0 0 auto; }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
@@ -87,8 +89,8 @@ textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; 
 </style>
 <div id="app"></div>
 <script type="module">
-import { App } from './js/ui/App.js?v=8';
-import { createPlatform } from './js/services/Platform.js?v=8';
+import { App } from './js/ui/App.js?v=9';
+import { createPlatform } from './js/services/Platform.js?v=9';
 const app = new App({ platform: createPlatform(), root: document.getElementById('app') });
 window.lantern = app; // for tests and poking from the console
 app.boot();

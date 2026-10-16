@@ -3,7 +3,7 @@
 // mixes in pseudowords to catch guessing, and stops when the estimate is tight enough.
 // Deterministic for a given seed so it can be tested.
 
-import { BANDS } from '../data/pack-en-zh.js?v=8';
+import { BANDS } from '../data/pack-en-zh.js?v=9';
 
 export function makeRng(seed = 1) {
   let s = seed >>> 0 || 1;

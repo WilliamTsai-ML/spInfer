@@ -1,6 +1,6 @@
 // Web implementations of the service interfaces. Browser APIs live here and nowhere else.
 
-import { Recognizer, Speaker, Store, Clock, Monetization } from './interfaces.js?v=8';
+import { Recognizer, Speaker, Store, Clock, Monetization } from './interfaces.js?v=9';
 
 export class WebSpeechRecognizer extends Recognizer {
   constructor() {

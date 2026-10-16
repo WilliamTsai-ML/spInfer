@@ -1,11 +1,11 @@
 // UI layer. Talks to core and to the service interfaces, never to browser APIs directly
 // (DOM aside). Screens are small classes with a mount(root) method.
 
-import { LearnerModel, SKILLS } from '../core/LearnerModel.js?v=8';
-import { VocabPlacement } from '../core/VocabPlacement.js?v=8';
-import { SpeechAssessor } from '../core/SpeechAssessor.js?v=8';
-import { WordDrill } from '../core/WordDrill.js?v=8';
-import { VOCAB, PSEUDOWORDS, SPEAKING, MINIMAL_PAIRS, PHONEME_NOTES, STRINGS } from '../data/pack-en-zh.js?v=8';
+import { LearnerModel, SKILLS } from '../core/LearnerModel.js?v=9';
+import { VocabPlacement } from '../core/VocabPlacement.js?v=9';
+import { SpeechAssessor } from '../core/SpeechAssessor.js?v=9';
+import { WordDrill } from '../core/WordDrill.js?v=9';
+import { VOCAB, PSEUDOWORDS, SPEAKING, MINIMAL_PAIRS, PHONEME_NOTES, STRINGS } from '../data/pack-en-zh.js?v=9';
 
 const h = (tag, attrs = {}, ...children) => {
   const el = document.createElement(tag);
@@ -136,7 +136,23 @@ class MicPanel {
     this.trace = h('p', { class: 'muted small trace', id: 'trace' });
     this.heard = h('div', { class: 'heard', id: 'heard' });
     this.input = h('textarea', { id: 'transcript', rows: 1, placeholder: placeholder ?? app.t('typeFallback'), autocapitalize: 'off', autocorrect: 'off' });
-    this.recBtn = h('button', { class: 'primary mic', id: 'rec', onclick: () => this.toggleRecord() }, app.t('record'));
+    // Walkie-talkie: hold to talk, release to stop. A quick tap starts; the next tap stops.
+    this.recBtn = h('button', { class: 'primary mic', id: 'rec' }, app.t('record'));
+    this.recBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+    this.recBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); this.recBtn.setPointerCapture?.(e.pointerId);
+      this.pressed = true; this.pressedAt = Date.now();
+      this.tapToStop = this.recording;
+      if (!this.recording) this.toggleRecord();
+    });
+    const release = () => {
+      if (!this.pressed) return; this.pressed = false;
+      const held = Date.now() - this.pressedAt >= 250;
+      this.holdMode = held && !this.tapToStop;
+      if (this.tapToStop || held) { if (this.recording) this.toggleRecord(); }
+    };
+    this.recBtn.addEventListener('pointerup', release);
+    this.recBtn.addEventListener('pointercancel', release);
     this.input.addEventListener('input', () => { clearTimeout(this.typeTimer); if (this.input.value.trim()) this.typeTimer = setTimeout(() => this.deliver(this.input.value), 600); });
   }
   get elements() { return [this.status, this.input, this.heard, this.trace]; }
@@ -152,13 +168,13 @@ class MicPanel {
     const a = this.app; const rec = a.platform.recognizer;
     if (this.recording) { rec.stop(); this.recBtn.textContent = '…'; return; }
     a.platform.speaker.stop(); // free the audio session before recording
-    this.recording = true; this.recBtn.textContent = '■ ' + a.t('stop'); this.recBtn.classList.add('live');
+    this.recording = true; this.recBtn.textContent = '● ' + a.t('listening_'); this.recBtn.classList.add('live');
     this.status.textContent = a.t('listening_'); this.heard.textContent = '';
     const seq = (this.seq = (this.seq || 0) + 1);
     try {
       await rec.start({
         lang: 'en-US',
-        onEvent: (e) => { this.events.push(e); this.trace.textContent = this.events.join(' · '); },
+        onEvent: (e) => { this.events.push(e); this.trace.textContent = this.events.join(' · '); if (e === 'start' && this.holdMode && !this.pressed) rec.stop(); },
         onInterim: (t) => { if (seq === this.seq) this.heard.textContent = a.t('heard') + ' ' + t; },
         onFinal: (t) => { if (seq !== this.seq) return; this.stopUi(); if (t) { this.retries = 0; this.deliver(t); } else if (!this.status.textContent) this.status.textContent = a.t('nothingHeard'); },
         onError: (err) => {
